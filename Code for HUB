@@ -55,27 +55,22 @@ local scriptsRunning = true
 local originalTransparencies = {}
 local origLighting = {}
 
--- --- UNIVERSAL DIRECTION VECTOR UTILITY (CAMERA RELATIVE STEERING) ---
+-- --- UNIVERSAL DIRECTION VECTOR UTILITY ---
 local function getMoveDirection()
     local hum = Character:FindFirstChildOfClass("Humanoid")
-    
-    -- Mobile Dynamic Stick Vector
     if hum and hum.MoveDirection.Magnitude > 0 then
         local joystickDir = hum.MoveDirection
-        -- Project vector onto the Camera's pitch angle to allow vertical diving/climbing via stick
         local camLook = Camera.CFrame.LookVector
         return (joystickDir + Vector3.new(0, camLook.Y * joystickDir.Magnitude, 0)).Unit
     end
     
-    -- PC Keyboard Vector
     local dir = Vector3.new(0,0,0)
     if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
     if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
     if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
     if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
-    
     if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
-    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,1,0) end
+    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,-1,0) end
     
     if dir.Magnitude > 0 then return dir.Unit end
     return Vector3.new(0,0,0)
@@ -200,7 +195,7 @@ local function setTrueInvis(state)
     end
 end
 
--- --- UNIVERSAL FREECAM ENGINE ---
+-- --- FREECAM ENGINE ---
 local fcPos, fcRotX, fcRotY
 local fcProxyPart = Instance.new("Part")
 fcProxyPart.Transparency = 1; fcProxyPart.CanCollide = false; fcProxyPart.Anchored = true; fcProxyPart.Size = Vector3.new(1,1,1)
@@ -220,7 +215,6 @@ local function toggleFreecam(state)
         fcConnection = RunService.RenderStepped:Connect(function(deltaTime)
             if not scriptsRunning then return end
             
-            -- Swipe/Drag Navigation Vector mapping
             local delta = UIS:GetMouseDelta()
             if delta.Magnitude > 0 then
                 if UIS.TouchEnabled then
@@ -254,7 +248,7 @@ local function toggleFreecam(state)
     if updateVisuals then updateVisuals() end
 end
 
--- --- FLIGHT ENGINE MODULE ---
+-- --- FLIGHT MODULE ---
 local function startFlying()
     if not scriptsRunning then return end
     local root = Character:FindFirstChild("HumanoidRootPart")
@@ -361,9 +355,9 @@ local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and for
 
 -- --- CORE GUI LAYER ---
 local sg = Instance.new("ScreenGui", CoreGui)
-sg.Name = "ControlHub_V32"
+sg.Name = "ControlHub_V33"
 
--- DRAGGABLE MASTER GEAR ICON (K-KEY REPLACEMENT)
+-- DRAGGABLE MASTER GEAR ICON
 local MobileToggle = Instance.new("ImageButton", sg)
 MobileToggle.Size = UDim2.new(0, 38, 0, 38)
 MobileToggle.Position = UDim2.new(0, 10, 0.4, 0)
@@ -393,14 +387,14 @@ local function setupTouchDrag(targetObj, dragTrigger)
 end
 setupTouchDrag(MobileToggle, MobileToggle)
 
--- COMPACT SHORTER ENGINE WINDOW (MOBILE optimized)
+-- MAIN SYSTEM PANEL
 local Main = Instance.new("Frame", sg)
 Main.Size = UDim2.new(0, 250, 0, 310); Main.Position = UDim2.new(0.12, 0, 0.15, 0)
 Main.BackgroundColor3 = Color3.fromRGB(25, 25, 30); Main.BorderSizePixel = 0; Main.ClipsDescendants = true
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 setupTouchDrag(Main, Main)
 
--- MINI CONTROLS ALTITUDE PAD (STANDALONE UNANCHORED FRAME)
+-- MINI-PAD FRAME
 local MiniPad = Instance.new("Frame", sg)
 MiniPad.Size = UDim2.new(0, 130, 0, 80); MiniPad.Position = UDim2.new(0.12, 0, 0.68, 0)
 MiniPad.BackgroundColor3 = Color3.fromRGB(25, 25, 30); MiniPad.BorderSizePixel = 0; MiniPad.Visible = false
@@ -424,7 +418,7 @@ MiniGhostBtn.Size = UDim2.new(0.42, 0, 0, 38); MiniGhostBtn.Position = UDim2.new
 MiniFlyBtn.MouseButton1Click:Connect(function() toggleFly() end)
 MiniGhostBtn.MouseButton1Click:Connect(function() toggleGhost() end)
 
--- FLOATING GEAR EXPANSION PAD (SPLIT SELECTOR HUB)
+-- FLOATING HUB MENU
 local SelectorHub = Instance.new("Frame", sg)
 SelectorHub.Size = UDim2.new(0, 100, 0, 70); SelectorHub.Position = UDim2.new(0, 55, 0.38, 0)
 SelectorHub.BackgroundColor3 = Color3.fromRGB(30, 30, 35); SelectorHub.Visible = false; SelectorHub.BorderSizePixel = 0
@@ -435,14 +429,21 @@ ToggleMainBtn.Size = UDim2.new(0.88, 0, 0, 24); ToggleMainBtn.Position = UDim2.n
 local ToggleMiniBtn = Instance.new("TextButton", SelectorHub)
 ToggleMiniBtn.Size = UDim2.new(0.88, 0, 0, 24); ToggleMiniBtn.Position = UDim2.new(0.06, 0, 0, 37); ToggleMiniBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); ToggleMiniBtn.Text = "MINI-PAD"; ToggleMiniBtn.TextColor3 = Color3.fromRGB(255, 255, 255); ToggleMiniBtn.Font = Enum.Font.GothamBold; ToggleMiniBtn.TextSize = 8; Instance.new("UICorner", ToggleMiniBtn)
 
--- Tie visibility chains purely to the quick interface selector rings
+local menuVisible = true
+local function toggleGlobalVisibility()
+    menuVisible = not menuVisible
+    Main.Visible = menuVisible
+    if not menuVisible then MiniPad.Visible = false end
+    for _, extGui in pairs(externalGuis) do
+        if extGui and extGui.Parent then extGui.Enabled = menuVisible end
+    end
+end
+
 ToggleMainBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible SelectorHub.Visible = false end)
 ToggleMiniBtn.MouseButton1Click:Connect(function() MiniPad.Visible = not MiniPad.Visible SelectorHub.Visible = false end)
 
--- Core Interceptor Gear Function Hook
 MobileToggle.MouseButton1Click:Connect(function()
     SelectorHub.Visible = not SelectorHub.Visible
-    -- Keep background integrations tracking visibility changes smoothly
     for _, extGui in pairs(externalGuis) do
         if extGui and extGui.Parent then extGui.Enabled = SelectorHub.Visible or Main.Visible or MiniPad.Visible end
     end
@@ -454,13 +455,13 @@ setupTouchDrag(Main, Header)
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(0.5, 0, 1, 0); Title.Position = UDim2.new(0.05, 0, 0, 0)
-Title.Text = "SYSTEM ARCHITECT V32"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "SYSTEM ARCHITECT V33"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold; Title.TextSize = 9; Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local CollapseBtn = Instance.new("TextButton", Header)
 CollapseBtn.Size = UDim2.new(0, 30, 0, 30); CollapseBtn.Position = UDim2.new(1, -65, 0, 2.5)
 CollapseBtn.Text = "[-]"; CollapseBtn.TextColor3 = Color3.fromRGB(0, 255, 150); CollapseBtn.BackgroundTransparency = 1; CollapseBtn.Font = Enum.Font.GothamBold; CollapseBtn.TextSize = 12
-CollapseBtn.MouseButton1Click:Connect(function() Main.Visible = false end) -- Collapse window away completely
+CollapseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 
 local CloseBtn = Instance.new("TextButton", Header)
 CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0, 2.5)
@@ -613,7 +614,7 @@ updateVisuals = function()
     btnRefs["Ghost"].BackgroundColor3 = ghostActive and colorOn or colorOff
     MiniGhostBtn.BackgroundColor3 = ghostActive and colorOn or colorOff
     
-    btnRefs["Freecam"].BackgroundColor3 = freecamActive personalize and colorOn or colorOff
+    btnRefs["Freecam"].BackgroundColor3 = freecamActive and colorOn or colorOff
     btnRefs["God Mode"].BackgroundColor3 = godModeActive and colorOn or colorOff
     btnRefs["Fullbright"].BackgroundColor3 = fullbrightActive and colorOn or colorOff
 end
@@ -682,7 +683,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     pcall(function() sg:Destroy() end)
 end)
 
--- Universal input fallback array loop for keyboard testing
+-- Keyboard execution validation loop
 UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed or not scriptsRunning then return end
     if input.KeyCode == Enum.KeyCode.K then 
