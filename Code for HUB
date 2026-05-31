@@ -34,7 +34,6 @@ local Camera = workspace.CurrentCamera
 
 -- State Variables
 local flyActive, invisActive, ghostActive, noclipActive, freecamActive, fullbrightActive, godModeActive, walkFlingActive = false, false, false, false, false, false, false, false
-local walkFlingOldVel = Vector3.new(0,0,0)
 local walkFlingOldRot = Vector3.new(0,0,0)
 
 local binds = { Fly = Enum.KeyCode.F, Invis = Enum.KeyCode.J, Ghost = Enum.KeyCode.G, Noclip = Enum.KeyCode.None, Freecam = Enum.KeyCode.None, Fullbright = Enum.KeyCode.None, GodMode = Enum.KeyCode.None, WalkFling = Enum.KeyCode.None }
@@ -269,9 +268,17 @@ local function stopFlying()
     if humanoid then humanoid.PlatformStand = false end
 end
 
--- --- NATIVE WALK FLING ENGINE ---
+-- --- NATIVE WALK FLING ENGINE (WITH AUTO-NOCLIP) ---
 local function toggleWalkFling(state)
     walkFlingActive = (state ~= nil) and state or not walkFlingActive
+    
+    if walkFlingActive then
+        noclipActive = true -- Automatically engage map geometry protection
+    else
+        if Character and Character:FindFirstChild("HumanoidRootPart") then
+            Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        end
+    end
     if updateVisuals then updateVisuals() end
 end
 
@@ -280,12 +287,9 @@ RunService.Stepped:Connect(function()
     local root = Character:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Inject pure physics spike before collision check
     if walkFlingActive then
-        walkFlingOldVel = root.Velocity
-        walkFlingOldRot = root.RotVelocity
-        root.Velocity = Vector3.new(50000, 50000, 50000)
-        root.RotVelocity = Vector3.new(50000, 50000, 50000)
+        walkFlingOldRot = root.AssemblyAngularVelocity
+        root.AssemblyAngularVelocity = Vector3.new(50000, 50000, 50000)
     end
 end)
 
@@ -293,10 +297,8 @@ RunService.Heartbeat:Connect(function()
     if not scriptsRunning or not Character then return end
     local root = Character:FindFirstChild("HumanoidRootPart")
     
-    -- Retract the fling spike so the local camera doesn't launch
     if walkFlingActive and root then
-        root.Velocity = walkFlingOldVel
-        root.RotVelocity = walkFlingOldRot
+        root.AssemblyAngularVelocity = walkFlingOldRot
     end
     
     if noclipActive or ghostActive or invisActive then
@@ -376,7 +378,7 @@ local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and gho
 
 -- --- CORE GUI LAYER ---
 local sg = Instance.new("ScreenGui", CoreGui)
-sg.Name = "ControlHub_V35"
+sg.Name = "ControlHub_V37"
 
 -- DRAGGABLE MASTER GEAR ICON
 local MobileToggle = Instance.new("ImageButton", sg)
@@ -476,7 +478,7 @@ setupTouchDrag(Main, Header)
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(0.5, 0, 1, 0); Title.Position = UDim2.new(0.05, 0, 0, 0)
-Title.Text = "SYSTEM ARCHITECT V35"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "SYSTEM ARCHITECT V37"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold; Title.TextSize = 9; Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local CollapseBtn = Instance.new("TextButton", Header)
