@@ -6,26 +6,13 @@ for _, gui in pairs(CoreGui:GetChildren()) do
     end
 end
 
--- --- EXTERNAL SCRIPT INITIALIZATION & GUI TRACKING ---
+-- --- EXTERNAL SCRIPT INITIALIZATION (INFINITE YIELD ONLY) ---
 local externalGuis = {}
 local preLoadGuis = {}
 for _, v in pairs(CoreGui:GetChildren()) do preLoadGuis[v] = true end
 
 task.spawn(function()
     pcall(function() loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))() end)
-    pcall(function() 
-        local dkSource = game:HttpGet("https://raw.githubusercontent.com/platinww/CrustyMain/refs/heads/main/universal/DropKick.lua")
-        if dkSource then
-            dkSource = string.gsub(dkSource, "platinww", "BrunoBGO")
-            dkSource = string.gsub(dkSource, "Platinww", "BrunoBGO")
-            dkSource = string.gsub(dkSource, "Platin", "BrunoBGO")
-            dkSource = string.gsub(dkSource, "Discord copied to clipboard", "Fish video copied to clipboard")
-            dkSource = string.gsub(dkSource, "Discord", "Fish Video")
-            dkSource = string.gsub(dkSource, "discord", "fish video")
-            dkSource = string.gsub(dkSource, "setclipboard%b()", "setclipboard('https://www.youtube.com/watch?v=q0ZpOgpEiqs')")
-            loadstring(dkSource)() 
-        end
-    end)
     task.wait(2.5)
     for _, v in pairs(CoreGui:GetChildren()) do
         if not preLoadGuis[v] and v:IsA("ScreenGui") and not string.match(v.Name, "ControlHub_V") then
@@ -46,8 +33,11 @@ local Character = Player.Character or Player.CharacterAdded:Wait()
 local Camera = workspace.CurrentCamera
 
 -- State Variables
-local flyActive, invisActive, ghostActive, noclipActive, freecamActive, fullbrightActive, godModeActive = false, false, false, false, false, false, false
-local binds = { Fly = Enum.KeyCode.F, Invis = Enum.KeyCode.J, Ghost = Enum.KeyCode.G, Noclip = Enum.KeyCode.None, Freecam = Enum.KeyCode.None, Fullbright = Enum.KeyCode.None, GodMode = Enum.KeyCode.None }
+local flyActive, invisActive, ghostActive, noclipActive, freecamActive, fullbrightActive, godModeActive, walkFlingActive = false, false, false, false, false, false, false, false
+local walkFlingOldVel = Vector3.new(0,0,0)
+local walkFlingOldRot = Vector3.new(0,0,0)
+
+local binds = { Fly = Enum.KeyCode.F, Invis = Enum.KeyCode.J, Ghost = Enum.KeyCode.G, Noclip = Enum.KeyCode.None, Freecam = Enum.KeyCode.None, Fullbright = Enum.KeyCode.None, GodMode = Enum.KeyCode.None, WalkFling = Enum.KeyCode.None }
 local DEFAULTS = { FlySpeed = 50, WalkSpeed = 16, JumpPower = 50, FreecamSpeed = 100 }
 local flySpeed, walkSpeedSetting, jumpPowerSetting, freecamSpeed = DEFAULTS.FlySpeed, DEFAULTS.WalkSpeed, DEFAULTS.JumpPower, DEFAULTS.FreecamSpeed
 local espEnabled = false
@@ -279,13 +269,42 @@ local function stopFlying()
     if humanoid then humanoid.PlatformStand = false end
 end
 
+-- --- NATIVE WALK FLING ENGINE ---
+local function toggleWalkFling(state)
+    walkFlingActive = (state ~= nil) and state or not walkFlingActive
+    if updateVisuals then updateVisuals() end
+end
+
+RunService.Stepped:Connect(function()
+    if not scriptsRunning or not Character then return end
+    local root = Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Inject pure physics spike before collision check
+    if walkFlingActive then
+        walkFlingOldVel = root.Velocity
+        walkFlingOldRot = root.RotVelocity
+        root.Velocity = Vector3.new(50000, 50000, 50000)
+        root.RotVelocity = Vector3.new(50000, 50000, 50000)
+    end
+end)
+
 RunService.Heartbeat:Connect(function()
     if not scriptsRunning or not Character then return end
+    local root = Character:FindFirstChild("HumanoidRootPart")
+    
+    -- Retract the fling spike so the local camera doesn't launch
+    if walkFlingActive and root then
+        root.Velocity = walkFlingOldVel
+        root.RotVelocity = walkFlingOldRot
+    end
+    
     if noclipActive or ghostActive or invisActive then
         for _, part in pairs(Character:GetDescendants()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
+    
     local hum = Character:FindFirstChildOfClass("Humanoid")
     if hum and not freecamActive then
         if not flyActive and not ghostActive then
@@ -353,11 +372,11 @@ local sliderUpdates = {}
 local function toggleFly(forceState) flyActive = (forceState ~= nil) and forceState or not flyActive if flyActive then startFlying() else stopFlying() end if updateVisuals then updateVisuals() end end
 local function toggleInvis(forceState) invisActive = (forceState ~= nil) and forceState or not invisActive setTrueInvis(invisActive) if updateVisuals then updateVisuals() end end
 local function toggleNoclip(forceState) noclipActive = (forceState ~= nil) and forceState or not noclipActive if updateVisuals then updateVisuals() end end
-local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and forceState or not ghostActive toggleFly(ghostActive); setTrueInvis(ghostActive) if updateVisuals then updateVisuals() end end
+local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and ghostActive or not ghostActive toggleFly(ghostActive); setTrueInvis(ghostActive) if updateVisuals then updateVisuals() end end
 
 -- --- CORE GUI LAYER ---
 local sg = Instance.new("ScreenGui", CoreGui)
-sg.Name = "ControlHub_V34"
+sg.Name = "ControlHub_V35"
 
 -- DRAGGABLE MASTER GEAR ICON
 local MobileToggle = Instance.new("ImageButton", sg)
@@ -457,7 +476,7 @@ setupTouchDrag(Main, Header)
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(0.5, 0, 1, 0); Title.Position = UDim2.new(0.05, 0, 0, 0)
-Title.Text = "SYSTEM ARCHITECT V34"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "SYSTEM ARCHITECT V35"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold; Title.TextSize = 9; Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local CollapseBtn = Instance.new("TextButton", Header)
@@ -488,7 +507,7 @@ TabBindsBtn.TextColor3 = Color3.fromRGB(180, 180, 180); TabBindsBtn.BackgroundCo
 -- Containers
 local ControlsContainer = Instance.new("ScrollingFrame", Main)
 ControlsContainer.Size = UDim2.new(1, 0, 1, -65); ControlsContainer.Position = UDim2.new(0, 0, 0, 65)
-ControlsContainer.BackgroundTransparency = 1; ControlsContainer.CanvasSize = UDim2.new(0, 0, 0, 780); ControlsContainer.ScrollBarThickness = 3
+ControlsContainer.BackgroundTransparency = 1; ControlsContainer.CanvasSize = UDim2.new(0, 0, 0, 800); ControlsContainer.ScrollBarThickness = 3
 
 local TpContainer = Instance.new("ScrollingFrame", Main)
 TpContainer.Size = UDim2.new(1, 0, 1, -65); TpContainer.Position = UDim2.new(0, 0, 0, 65)
@@ -496,7 +515,7 @@ TpContainer.BackgroundTransparency = 1; TpContainer.CanvasSize = UDim2.new(0, 0,
 
 local BindsContainer = Instance.new("ScrollingFrame", Main)
 BindsContainer.Size = UDim2.new(1, 0, 1, -65); BindsContainer.Position = UDim2.new(0, 0, 0, 65)
-BindsContainer.BackgroundTransparency = 1; BindsContainer.CanvasSize = UDim2.new(0, 0, 0, 350); BindsContainer.ScrollBarThickness = 3; BindsContainer.Visible = false
+BindsContainer.BackgroundTransparency = 1; BindsContainer.CanvasSize = UDim2.new(0, 0, 0, 380); BindsContainer.ScrollBarThickness = 3; BindsContainer.Visible = false
 
 local layoutC = Instance.new("UIListLayout", ControlsContainer)
 layoutC.Padding = UDim.new(0, 6); layoutC.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", ControlsContainer).PaddingTop = UDim.new(0, 8)
@@ -621,6 +640,7 @@ createRow("Ghost", toggleGhost)
 createRow("Freecam", toggleFreecam)
 createRow("God Mode", triggerGodMode)
 createRow("Fullbright", toggleFullbright)
+createRow("Walk Fling", toggleWalkFling)
 
 createRow("WalkSpeed Mod", function() walkSpeedSetting = (walkSpeedSetting == 16) and 100 or 16 sliderUpdates["Walk Speed"](walkSpeedSetting) end)
 createRow("JumpPower Mod", function() jumpPowerSetting = (jumpPowerSetting == 50) and 150 or 50 sliderUpdates["Jump Power"](jumpPowerSetting) end)
@@ -659,6 +679,7 @@ createBindRow("Ghost")
 createBindRow("Freecam")
 createBindRow("God Mode")
 createBindRow("Fullbright")
+createBindRow("WalkFling")
 
 updateVisuals = function()
     if not scriptsRunning then return end
@@ -672,6 +693,7 @@ updateVisuals = function()
     btnRefs["Freecam"].BackgroundColor3 = freecamActive and colorOn or colorOff
     btnRefs["God Mode"].BackgroundColor3 = godModeActive and colorOn or colorOff
     btnRefs["Fullbright"].BackgroundColor3 = fullbrightActive and colorOn or colorOff
+    btnRefs["Walk Fling"].BackgroundColor3 = walkFlingActive and colorOn or colorOff
 end
 
 -- --- TELEPORT TAB POPULATOR ---
@@ -719,6 +741,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     pcall(function() setTrueInvis(false) end)
     pcall(function() toggleFreecam(false) end)
     pcall(function() toggleFullbright(false) end)
+    pcall(function() toggleWalkFling(false) end)
     
     scriptsRunning = false 
     pcall(function() UIS.MouseBehavior = Enum.MouseBehavior.Default end)
@@ -749,14 +772,15 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
     elseif input.KeyCode == binds.Ghost and binds.Ghost ~= Enum.KeyCode.None then toggleGhost()
     elseif input.KeyCode == binds.Freecam and binds.Freecam ~= Enum.KeyCode.None then toggleFreecam()
     elseif input.KeyCode == binds.GodMode and binds.GodMode ~= Enum.KeyCode.None then triggerGodMode()
-    elseif input.KeyCode == binds.Fullbright and binds.Fullbright ~= Enum.KeyCode.None then toggleFullbright() end
+    elseif input.KeyCode == binds.Fullbright and binds.Fullbright ~= Enum.KeyCode.None then toggleFullbright()
+    elseif input.KeyCode == binds.WalkFling and binds.WalkFling ~= Enum.KeyCode.None then toggleWalkFling() end
 end)
 
 Player.CharacterAdded:Connect(function(newChar)
     Character = newChar
     originalTransparencies = {}
     if scriptsRunning then
-        flyActive, invisActive, ghostActive, noclipActive, freecamActive, godModeActive = false, false, false, false, false, false
+        flyActive, invisActive, ghostActive, noclipActive, freecamActive, godModeActive, walkFlingActive = false, false, false, false, false, false, false
         stopFlying()
         setCharacterMovement(true)
         if updateVisuals then updateVisuals() end
