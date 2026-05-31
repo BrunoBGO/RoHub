@@ -142,7 +142,7 @@ local function toggleFullbright(state)
         pcall(function()
             if origLighting.Ambient then Lighting.Ambient = origLighting.Ambient end
             if origLighting.OutdoorAmbient then Lighting.OutdoorAmbient = origLighting.OutdoorAmbient end
-            if origLighting.ColorShift_Bottom = Lighting.ColorShift_Bottom end
+            if origLighting.ColorShift_Bottom then Lighting.ColorShift_Bottom = origLighting.ColorShift_Bottom end
             if origLighting.ColorShift_Top then Lighting.ColorShift_Top = origLighting.ColorShift_Top end
             if origLighting.GlobalShadows ~= nil then Lighting.GlobalShadows = origLighting.GlobalShadows end
             if origLighting.ClockTime then Lighting.ClockTime = origLighting.ClockTime end
@@ -351,7 +351,7 @@ local sliderUpdates = {}
 local function toggleFly(forceState) flyActive = (forceState ~= nil) and forceState or not flyActive if flyActive then startFlying() else stopFlying() end if updateVisuals then updateVisuals() end end
 local function toggleInvis(forceState) invisActive = (forceState ~= nil) and forceState or not invisActive setTrueInvis(invisActive) if updateVisuals then updateVisuals() end end
 local function toggleNoclip(forceState) noclipActive = (forceState ~= nil) and forceState or not noclipActive if updateVisuals then updateVisuals() end end
-local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and ghostActive or not ghostActive toggleFly(ghostActive); setTrueInvis(ghostActive) if updateVisuals then updateVisuals() end end
+local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and forceState or not ghostActive toggleFly(ghostActive); setTrueInvis(ghostActive) if updateVisuals then updateVisuals() end end
 
 -- --- CORE GUI LAYER ---
 local sg = Instance.new("ScreenGui", CoreGui)
@@ -741,13 +741,13 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed or not scriptsRunning then return end
     if input.KeyCode == Enum.KeyCode.K then 
         SelectorHub.Visible = not SelectorHub.Visible
-    elseif input.KeyCode == binds.Fly then toggleFly()
-    elseif input.KeyCode == binds.Invis then toggleInvis()
-    elseif input.KeyCode == binds.Noclip then toggleNoclip()
-    elseif input.KeyCode == binds.Ghost then toggleGhost()
-    elseif input.KeyCode == binds.Freecam then toggleFreecam()
-    elseif input.KeyCode == binds.GodMode then triggerGodMode()
-    elseif input.KeyCode == binds.Fullbright then toggleFullbright() end
+    elseif input.KeyCode == binds.Fly and binds.Fly ~= Enum.KeyCode.None then toggleFly()
+    elseif input.KeyCode == binds.Invis and binds.Invis ~= Enum.KeyCode.None then toggleInvis()
+    elseif input.KeyCode == binds.Noclip and binds.Noclip ~= Enum.KeyCode.None then toggleNoclip()
+    elseif input.KeyCode == binds.Ghost and binds.Ghost ~= Enum.KeyCode.None then toggleGhost()
+    elseif input.KeyCode == binds.Freecam and binds.Freecam ~= Enum.KeyCode.None then toggleFreecam()
+    elseif input.KeyCode == binds.GodMode and binds.GodMode ~= Enum.KeyCode.None then triggerGodMode()
+    elseif input.KeyCode == binds.Fullbright and binds.Fullbright ~= Enum.KeyCode.None then toggleFullbright() end
 end)
 
 Player.CharacterAdded:Connect(function(newChar)
