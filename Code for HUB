@@ -1,12 +1,12 @@
--- --- AUTO-CLEANUP STUCK GUIS ---
+-- --- SYSTEM ARCHITECT V51 (MOVEMENT OVERHAUL) ---
+repeat task.wait() until game:IsLoaded()
+task.wait(1)
+
 local CoreGui = game:GetService("CoreGui")
 for _, gui in pairs(CoreGui:GetChildren()) do
-    if string.match(gui.Name, "ControlHub_V") then
-        pcall(function() gui:Destroy() end)
-    end
+    if string.match(gui.Name, "ControlHub_V") then pcall(function() gui:Destroy() end) end
 end
 
--- --- EXTERNAL SCRIPT INITIALIZATION (INFINITE YIELD ONLY) ---
 local externalGuis = {}
 local preLoadGuis = {}
 for _, v in pairs(CoreGui:GetChildren()) do preLoadGuis[v] = true end
@@ -21,9 +21,8 @@ task.spawn(function()
     end
 end)
 
--- Core Services
-local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -32,11 +31,8 @@ local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 local Camera = workspace.CurrentCamera
 
--- State Variables
-local flyActive, invisActive, ghostActive, noclipActive, freecamActive, fullbrightActive, godModeActive, walkFlingActive = false, false, false, false, false, false, false, false
-local walkFlingOldRot = Vector3.new(0,0,0)
-
-local binds = { Fly = Enum.KeyCode.F, Invis = Enum.KeyCode.J, Ghost = Enum.KeyCode.G, Noclip = Enum.KeyCode.None, Freecam = Enum.KeyCode.None, Fullbright = Enum.KeyCode.None, GodMode = Enum.KeyCode.None, WalkFling = Enum.KeyCode.None }
+local flyActive, invisActive, ghostActive, noclipActive, freecamActive, fullbrightActive, godModeActive = false, false, false, false, false, false, false
+local binds = { Fly = Enum.KeyCode.F, Invis = Enum.KeyCode.J, Ghost = Enum.KeyCode.G, Noclip = Enum.KeyCode.None, Freecam = Enum.KeyCode.None, Fullbright = Enum.KeyCode.None, GodMode = Enum.KeyCode.None, Down = Enum.KeyCode.LeftShift }
 local DEFAULTS = { FlySpeed = 50, WalkSpeed = 16, JumpPower = 50, FreecamSpeed = 100 }
 local flySpeed, walkSpeedSetting, jumpPowerSetting, freecamSpeed = DEFAULTS.FlySpeed, DEFAULTS.WalkSpeed, DEFAULTS.JumpPower, DEFAULTS.FreecamSpeed
 local espEnabled = false
@@ -46,39 +42,50 @@ local scriptsRunning = true
 local originalTransparencies = {}
 local origLighting = {}
 
--- --- UNIVERSAL DIRECTION VECTOR UTILITY ---
+-- --- OVERHAULED DIRECTIONAL MATH ---
 local function getMoveDirection()
-    local hum = Character:FindFirstChildOfClass("Humanoid")
-    if hum and hum.MoveDirection.Magnitude > 0 then
-        local joystickDir = hum.MoveDirection
-        local camLook = Camera.CFrame.LookVector
-        return (joystickDir + Vector3.new(0, camLook.Y * joystickDir.Magnitude, 0)).Unit
+    local dir = Vector3.new(0,0,0)
+    local isPcInput = false
+    
+    -- 1. Explicit PC Keyboard Logic (Overrides Roblox's 2D MoveDirection)
+    if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector; isPcInput = true end
+    if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector; isPcInput = true end
+    if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector; isPcInput = true end
+    if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector; isPcInput = true end
+    if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0, 1, 0); isPcInput = true end
+    
+    local downKey = binds.Down or Enum.KeyCode.LeftShift
+    if UIS:IsKeyDown(downKey) then dir = dir - Vector3.new(0, 1, 0); isPcInput = true end -- Fixed mathematical inversion
+    
+    if isPcInput then
+        return dir.Magnitude > 0 and dir.Unit or Vector3.new(0,0,0)
     end
     
-    local dir = Vector3.new(0,0,0)
-    if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
-    if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
-    if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
-    if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
-    if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
-    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,-1,0) end
+    -- 2. Mobile Touch / Controller Fallback
+    local hum = Character:FindFirstChildOfClass("Humanoid")
+    if hum and hum.MoveDirection.Magnitude > 0 then
+        -- Project the 2D joystick input into the 3D camera space
+        local flatCam = Vector3.new(Camera.CFrame.LookVector.X, 0, Camera.CFrame.LookVector.Z)
+        if flatCam.Magnitude > 0 then flatCam = flatCam.Unit else flatCam = Vector3.new(0,0,1) end
+        local dot = flatCam:Dot(hum.MoveDirection)
+        local vertical = Camera.CFrame.LookVector.Y * dot * 1.5
+        
+        local mDir = hum.MoveDirection + Vector3.new(0, vertical, 0)
+        if hum.Jump then mDir = mDir + Vector3.new(0, 1, 0) end
+        return mDir.Magnitude > 0 and mDir.Unit or Vector3.new(0,0,0)
+    end
     
-    if dir.Magnitude > 0 then return dir.Unit end
     return Vector3.new(0,0,0)
 end
 
--- --- MOVEMENT FREEZE & ANCHOR UTILITY ---
 local function setCharacterMovement(enabled)
     pcall(function()
         local PlayerModule = require(Player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule"))
         if enabled then PlayerModule:GetControls():Enable() else PlayerModule:GetControls():Disable() end
     end)
-    if Character and Character:FindFirstChild("HumanoidRootPart") then
-        Character.HumanoidRootPart.Anchored = (freecamActive)
-    end
+    if Character and Character:FindFirstChild("HumanoidRootPart") then Character.HumanoidRootPart.Anchored = (freecamActive) end
 end
 
--- --- GOD MODE & FULLBRIGHT ---
 local function triggerGodMode()
     if not Character or godModeActive then return end
     local hum = Character:FindFirstChildOfClass("Humanoid")
@@ -147,11 +154,9 @@ local function toggleFullbright(state)
     if updateVisuals then updateVisuals() end
 end
 
--- --- SEAT WELD INVISIBILITY ---
 local function setTrueInvis(state)
     if not Character or not scriptsRunning then return end
     local seatName = Player.Name .. "_InvisSeat"
-    
     if state then
         if workspace:FindFirstChild(seatName) then return end 
         originalTransparencies = {}
@@ -186,7 +191,6 @@ local function setTrueInvis(state)
     end
 end
 
--- --- FREECAM ENGINE ---
 local fcPos, fcRotX, fcRotY
 local fcProxyPart = Instance.new("Part")
 fcProxyPart.Transparency = 1; fcProxyPart.CanCollide = false; fcProxyPart.Anchored = true; fcProxyPart.Size = Vector3.new(1,1,1)
@@ -198,7 +202,6 @@ local function toggleFreecam(state)
         fcProxyPart.CFrame = Camera.CFrame
         fcProxyPart.Parent = workspace
         pcall(function() Player.ReplicationFocus = fcProxyPart end)
-        
         fcPos = Camera.CFrame.Position
         local rx, ry, rz = Camera.CFrame:ToEulerAnglesYXZ()
         fcRotX, fcRotY = rx, ry
@@ -206,23 +209,25 @@ local function toggleFreecam(state)
         fcConnection = RunService.RenderStepped:Connect(function(deltaTime)
             if not scriptsRunning then return end
             
+            -- Fix: Set Mouse Behavior BEFORE reading Delta so it captures properly on PC
+            if not UIS.TouchEnabled then
+                if UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                    UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+                else
+                    UIS.MouseBehavior = Enum.MouseBehavior.Default
+                end
+            end
+            
             local delta = UIS:GetMouseDelta()
             if delta.Magnitude > 0 then
-                if UIS.TouchEnabled then
+                if UIS.TouchEnabled or UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
                     fcRotY = fcRotY - math.rad(delta.X * 0.25)
                     fcRotX = math.clamp(fcRotX - math.rad(delta.Y * 0.25), -math.rad(89), math.rad(89))
-                elseif UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-                    UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
-                    fcRotY = fcRotY - math.rad(delta.X * 0.3)
-                    fcRotX = math.clamp(fcRotX - math.rad(delta.Y * 0.3), -math.rad(89), math.rad(89))
                 end
-            else
-                if not UIS.TouchEnabled then UIS.MouseBehavior = Enum.MouseBehavior.Default end
             end
             
             local finalDirection = getMoveDirection()
             fcPos = fcPos + (finalDirection * (freecamSpeed * deltaTime))
-            
             local finalCFrame = CFrame.new(fcPos) * CFrame.fromEulerAnglesYXZ(fcRotX, fcRotY, 0)
             Camera.CFrame = finalCFrame
             fcProxyPart.CFrame = finalCFrame
@@ -239,21 +244,18 @@ local function toggleFreecam(state)
     if updateVisuals then updateVisuals() end
 end
 
--- --- FLIGHT MODULE ---
 local function startFlying()
     if not scriptsRunning then return end
     local root = Character:FindFirstChild("HumanoidRootPart")
     local humanoid = Character:FindFirstChildOfClass("Humanoid")
     if not root or not humanoid then return end
     humanoid.PlatformStand = true
-    
     bv = Instance.new("BodyVelocity", root); bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
     bg = Instance.new("BodyGyro", root); bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
     
     renderConnection = RunService.RenderStepped:Connect(function()
         if not scriptsRunning then return end
         if freecamActive then bv.Velocity = Vector3.new(0,0,0) return end
-        
         bg.CFrame = Camera.CFrame
         local finalDirection = getMoveDirection()
         bv.Velocity = finalDirection * flySpeed
@@ -268,55 +270,26 @@ local function stopFlying()
     if humanoid then humanoid.PlatformStand = false end
 end
 
--- --- NATIVE WALK FLING ENGINE (WITH AUTO-NOCLIP) ---
-local function toggleWalkFling(state)
-    walkFlingActive = (state ~= nil) and state or not walkFlingActive
-    
-    if walkFlingActive then
-        noclipActive = true -- Automatically engage map geometry protection
-    else
-        if Character and Character:FindFirstChild("HumanoidRootPart") then
-            Character.HumanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-        end
-    end
-    if updateVisuals then updateVisuals() end
-end
-
-RunService.Stepped:Connect(function()
-    if not scriptsRunning or not Character then return end
-    local root = Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    if walkFlingActive then
-        walkFlingOldRot = root.AssemblyAngularVelocity
-        root.AssemblyAngularVelocity = Vector3.new(50000, 50000, 50000)
-    end
-end)
-
 RunService.Heartbeat:Connect(function()
     if not scriptsRunning or not Character then return end
-    local root = Character:FindFirstChild("HumanoidRootPart")
-    
-    if walkFlingActive and root then
-        root.AssemblyAngularVelocity = walkFlingOldRot
-    end
-    
+    local hum = Character:FindFirstChildOfClass("Humanoid")
     if noclipActive or ghostActive or invisActive then
         for _, part in pairs(Character:GetDescendants()) do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
     end
-    
-    local hum = Character:FindFirstChildOfClass("Humanoid")
-    if hum and not freecamActive then
-        if not flyActive and not ghostActive then
-            hum.WalkSpeed = walkSpeedSetting
-            if hum.UseJumpPower then hum.JumpPower = jumpPowerSetting else hum.JumpHeight = jumpPowerSetting / 7.14 end
+    if hum then
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+        if not freecamActive then
+            if not flyActive and not ghostActive then
+                hum.WalkSpeed = walkSpeedSetting
+                if hum.UseJumpPower then hum.JumpPower = jumpPowerSetting else hum.JumpHeight = jumpPowerSetting / 7.14 end
+            end
         end
     end
 end)
 
--- --- DYNAMIC 360 ESP ---
 local function createESP(plr)
     local box = Drawing.new("Square"); box.Thickness = 1; box.Filled = false; box.Transparency = 1
     local tracer = Drawing.new("Line"); tracer.Thickness = 1; tracer.Transparency = 1
@@ -368,7 +341,6 @@ end
 for _, p in pairs(Players:GetPlayers()) do if p ~= Player then createESP(p) end end
 Players.PlayerAdded:Connect(createESP)
 
--- --- COUPLING ENGINE INTERFACES ---
 updateVisuals = nil
 local sliderUpdates = {}
 local function toggleFly(forceState) flyActive = (forceState ~= nil) and forceState or not flyActive if flyActive then startFlying() else stopFlying() end if updateVisuals then updateVisuals() end end
@@ -376,11 +348,9 @@ local function toggleInvis(forceState) invisActive = (forceState ~= nil) and for
 local function toggleNoclip(forceState) noclipActive = (forceState ~= nil) and forceState or not noclipActive if updateVisuals then updateVisuals() end end
 local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and ghostActive or not ghostActive toggleFly(ghostActive); setTrueInvis(ghostActive) if updateVisuals then updateVisuals() end end
 
--- --- CORE GUI LAYER ---
 local sg = Instance.new("ScreenGui", CoreGui)
-sg.Name = "ControlHub_V37"
+sg.Name = "ControlHub_V51"
 
--- DRAGGABLE MASTER GEAR ICON
 local MobileToggle = Instance.new("ImageButton", sg)
 MobileToggle.Size = UDim2.new(0, 38, 0, 38)
 MobileToggle.Position = UDim2.new(0, 10, 0.4, 0)
@@ -410,14 +380,12 @@ local function setupTouchDrag(targetObj, dragTrigger)
 end
 setupTouchDrag(MobileToggle, MobileToggle)
 
--- MAIN SYSTEM PANEL
 local Main = Instance.new("Frame", sg)
 Main.Size = UDim2.new(0, 250, 0, 310); Main.Position = UDim2.new(0.12, 0, 0.15, 0)
 Main.BackgroundColor3 = Color3.fromRGB(25, 25, 30); Main.BorderSizePixel = 0; Main.ClipsDescendants = true
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 setupTouchDrag(Main, Main)
 
--- MINI-PAD FRAME
 local MiniPad = Instance.new("Frame", sg)
 MiniPad.Size = UDim2.new(0, 130, 0, 80); MiniPad.Position = UDim2.new(0.12, 0, 0.68, 0)
 MiniPad.BackgroundColor3 = Color3.fromRGB(25, 25, 30); MiniPad.BorderSizePixel = 0; MiniPad.Visible = false
@@ -441,7 +409,6 @@ MiniGhostBtn.Size = UDim2.new(0.42, 0, 0, 38); MiniGhostBtn.Position = UDim2.new
 MiniFlyBtn.MouseButton1Click:Connect(function() toggleFly() end)
 MiniGhostBtn.MouseButton1Click:Connect(function() toggleGhost() end)
 
--- FLOATING HUB MENU
 local SelectorHub = Instance.new("Frame", sg)
 SelectorHub.Size = UDim2.new(0, 100, 0, 70); SelectorHub.Position = UDim2.new(0, 55, 0.38, 0)
 SelectorHub.BackgroundColor3 = Color3.fromRGB(30, 30, 35); SelectorHub.Visible = false; SelectorHub.BorderSizePixel = 0
@@ -451,16 +418,6 @@ local ToggleMainBtn = Instance.new("TextButton", SelectorHub)
 ToggleMainBtn.Size = UDim2.new(0.88, 0, 0, 24); ToggleMainBtn.Position = UDim2.new(0.06, 0, 0, 7); ToggleMainBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); ToggleMainBtn.Text = "DASHBOARD"; ToggleMainBtn.TextColor3 = Color3.fromRGB(255, 255, 255); ToggleMainBtn.Font = Enum.Font.GothamBold; ToggleMainBtn.TextSize = 8; Instance.new("UICorner", ToggleMainBtn)
 local ToggleMiniBtn = Instance.new("TextButton", SelectorHub)
 ToggleMiniBtn.Size = UDim2.new(0.88, 0, 0, 24); ToggleMiniBtn.Position = UDim2.new(0.06, 0, 0, 37); ToggleMiniBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); ToggleMiniBtn.Text = "MINI-PAD"; ToggleMiniBtn.TextColor3 = Color3.fromRGB(255, 255, 255); ToggleMiniBtn.Font = Enum.Font.GothamBold; ToggleMiniBtn.TextSize = 8; Instance.new("UICorner", ToggleMiniBtn)
-
-local menuVisible = true
-local function toggleGlobalVisibility()
-    menuVisible = not menuVisible
-    Main.Visible = menuVisible
-    if not menuVisible then MiniPad.Visible = false end
-    for _, extGui in pairs(externalGuis) do
-        if extGui and extGui.Parent then extGui.Enabled = menuVisible end
-    end
-end
 
 ToggleMainBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible SelectorHub.Visible = false end)
 ToggleMiniBtn.MouseButton1Click:Connect(function() MiniPad.Visible = not MiniPad.Visible SelectorHub.Visible = false end)
@@ -478,7 +435,7 @@ setupTouchDrag(Main, Header)
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(0.5, 0, 1, 0); Title.Position = UDim2.new(0.05, 0, 0, 0)
-Title.Text = "SYSTEM ARCHITECT V37"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "SYSTEM ARCHITECT V51"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold; Title.TextSize = 9; Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local CollapseBtn = Instance.new("TextButton", Header)
@@ -490,7 +447,6 @@ local CloseBtn = Instance.new("TextButton", Header)
 CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0, 2.5)
 CloseBtn.Text = "[X]"; CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold
 
--- THREE-WAY DECK NAVIGATION BAR
 local TabBar = Instance.new("Frame", Main)
 TabBar.Size = UDim2.new(1, 0, 0, 30); TabBar.Position = UDim2.new(0, 0, 0, 35); TabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 
@@ -506,10 +462,9 @@ local TabBindsBtn = Instance.new("TextButton", TabBar)
 TabBindsBtn.Size = UDim2.new(0.34, 0, 1, 0); TabBindsBtn.Position = UDim2.new(0.66, 0, 0, 0); TabBindsBtn.Text = "KEYBINDS"; TabBindsBtn.Font = Enum.Font.GothamBold; TabBindsBtn.TextSize = 8
 TabBindsBtn.TextColor3 = Color3.fromRGB(180, 180, 180); TabBindsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabBindsBtn.BorderSizePixel = 0
 
--- Containers
 local ControlsContainer = Instance.new("ScrollingFrame", Main)
 ControlsContainer.Size = UDim2.new(1, 0, 1, -65); ControlsContainer.Position = UDim2.new(0, 0, 0, 65)
-ControlsContainer.BackgroundTransparency = 1; ControlsContainer.CanvasSize = UDim2.new(0, 0, 0, 800); ControlsContainer.ScrollBarThickness = 3
+ControlsContainer.BackgroundTransparency = 1; ControlsContainer.CanvasSize = UDim2.new(0, 0, 0, 650); ControlsContainer.ScrollBarThickness = 3
 
 local TpContainer = Instance.new("ScrollingFrame", Main)
 TpContainer.Size = UDim2.new(1, 0, 1, -65); TpContainer.Position = UDim2.new(0, 0, 0, 65)
@@ -517,30 +472,24 @@ TpContainer.BackgroundTransparency = 1; TpContainer.CanvasSize = UDim2.new(0, 0,
 
 local BindsContainer = Instance.new("ScrollingFrame", Main)
 BindsContainer.Size = UDim2.new(1, 0, 1, -65); BindsContainer.Position = UDim2.new(0, 0, 0, 65)
-BindsContainer.BackgroundTransparency = 1; BindsContainer.CanvasSize = UDim2.new(0, 0, 0, 380); BindsContainer.ScrollBarThickness = 3; BindsContainer.Visible = false
+BindsContainer.BackgroundTransparency = 1; BindsContainer.CanvasSize = UDim2.new(0, 0, 0, 360); BindsContainer.ScrollBarThickness = 3; BindsContainer.Visible = false
 
 local layoutC = Instance.new("UIListLayout", ControlsContainer)
 layoutC.Padding = UDim.new(0, 6); layoutC.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", ControlsContainer).PaddingTop = UDim.new(0, 8)
-
 local layoutT = Instance.new("UIListLayout", TpContainer)
 layoutT.Padding = UDim.new(0, 6); layoutT.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", TpContainer).PaddingTop = UDim.new(0, 8)
-
 local layoutB = Instance.new("UIListLayout", BindsContainer)
 layoutB.Padding = UDim.new(0, 6); layoutB.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", BindsContainer).PaddingTop = UDim.new(0, 8)
 
--- Tab Navigation
 local function selectTab(activeContainer, activeBtn)
     ControlsContainer.Visible = (activeContainer == ControlsContainer)
     TpContainer.Visible = (activeContainer == TpContainer)
     BindsContainer.Visible = (activeContainer == BindsContainer)
-    
     TabControlsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabControlsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
     TabTpBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabTpBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
     TabBindsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabBindsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    
     activeBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); activeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
-
 TabControlsBtn.MouseButton1Click:Connect(function() selectTab(ControlsContainer, TabControlsBtn) end)
 TabTpBtn.MouseButton1Click:Connect(function() selectTab(TpContainer, TabTpBtn) end)
 TabBindsBtn.MouseButton1Click:Connect(function() selectTab(BindsContainer, TabBindsBtn) end)
@@ -549,47 +498,39 @@ local btnRefs = {}
 local function createRow(name, action)
     local row = Instance.new("Frame", ControlsContainer)
     row.Size = UDim2.new(0.94, 0, 0, 34); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-
     local actBtn = Instance.new("TextButton", row)
     actBtn.Size = UDim2.new(0.92, 0, 0, 22); actBtn.Position = UDim2.new(0.04, 0, 0, 6)
     actBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); actBtn.Text = name:upper(); actBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     actBtn.Font = Enum.Font.GothamBold; actBtn.TextSize = 9; Instance.new("UICorner", actBtn)
-    
     actBtn.MouseButton1Click:Connect(action); btnRefs[name] = actBtn
 end
 
 local function createSliderAndBox(name, min, max, default, callback)
     local row = Instance.new("Frame", ControlsContainer)
     row.Size = UDim2.new(0.94, 0, 0, 44); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-
     local title = Instance.new("TextLabel", row)
     title.Size = UDim2.new(0.5, 0, 0, 14); title.Position = UDim2.new(0.04, 0, 0, 4)
     title.Text = name:upper(); title.TextColor3 = Color3.fromRGB(200, 200, 200)
     title.Font = Enum.Font.GothamSemibold; title.TextSize = 8; title.TextXAlignment = Enum.TextXAlignment.Left
-
     local numBox = Instance.new("TextBox", row)
     numBox.Size = UDim2.new(0, 38, 0, 14); numBox.Position = UDim2.new(1, -46, 0, 4)
     numBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55); numBox.Text = tostring(default); numBox.TextColor3 = Color3.fromRGB(255, 255, 255)
     numBox.Font = Enum.Font.GothamBold; numBox.TextSize = 8; Instance.new("UICorner", numBox)
-
     local sliderBg = Instance.new("Frame", row)
     sliderBg.Size = UDim2.new(0.92, 0, 0, 3); sliderBg.Position = UDim2.new(0.04, 0, 0, 30)
     sliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 55); Instance.new("UICorner", sliderBg)
-
     local sliderFill = Instance.new("Frame", sliderBg)
     sliderFill.BackgroundColor3 = Color3.fromRGB(0, 255, 150); Instance.new("UICorner", sliderFill)
-
     local dragBtn = Instance.new("TextButton", sliderBg)
     dragBtn.Size = UDim2.new(0, 8, 0, 8); dragBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); dragBtn.Text = ""; Instance.new("UICorner", dragBtn)
-
+    
     local function syncVisuals(val)
         local clamped = math.clamp(val, min, max); local pct = (clamped - min) / (max - min)
         sliderFill.Size = UDim2.new(pct, 0, 1, 0); dragBtn.Position = UDim2.new(pct, -4, 0, -3)
         numBox.Text = tostring(clamped); callback(clamped)
     end
-    
     sliderUpdates[name] = syncVisuals; syncVisuals(default)
-
+    
     local active = false
     dragBtn.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then active = true end end)
     UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then active = false end end)
@@ -608,17 +549,15 @@ end
 local function createBindRow(name)
     local row = Instance.new("Frame", BindsContainer)
     row.Size = UDim2.new(0.94, 0, 0, 36); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
-
     local title = Instance.new("TextLabel", row)
     title.Size = UDim2.new(0.5, 0, 1, 0); title.Position = UDim2.new(0.05, 0, 0, 0)
     title.Text = name:upper(); title.TextColor3 = Color3.fromRGB(230, 230, 230)
     title.Font = Enum.Font.GothamBold; title.TextSize = 9; title.TextXAlignment = Enum.TextXAlignment.Left
-
     local bindBtn = Instance.new("TextButton", row)
     bindBtn.Size = UDim2.new(0, 70, 0, 22); bindBtn.Position = UDim2.new(1, -75, 0, 7)
     bindBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); bindBtn.Text = binds[name] and binds[name].Name or "NONE"
     bindBtn.TextColor3 = Color3.fromRGB(0, 255, 150); bindBtn.Font = Enum.Font.GothamBold; bindBtn.TextSize = 9; Instance.new("UICorner", bindBtn)
-
+    
     local listening = false
     bindBtn.MouseButton1Click:Connect(function()
         if not listening then
@@ -634,7 +573,6 @@ local function createBindRow(name)
     end)
 end
 
--- Layout Generation
 createRow("Fly", toggleFly)
 createRow("Invis", toggleInvis)
 createRow("Noclip", toggleNoclip)
@@ -642,7 +580,6 @@ createRow("Ghost", toggleGhost)
 createRow("Freecam", toggleFreecam)
 createRow("God Mode", triggerGodMode)
 createRow("Fullbright", toggleFullbright)
-createRow("Walk Fling", toggleWalkFling)
 
 createRow("WalkSpeed Mod", function() walkSpeedSetting = (walkSpeedSetting == 16) and 100 or 16 sliderUpdates["Walk Speed"](walkSpeedSetting) end)
 createRow("JumpPower Mod", function() jumpPowerSetting = (jumpPowerSetting == 50) and 150 or 50 sliderUpdates["Jump Power"](jumpPowerSetting) end)
@@ -673,7 +610,6 @@ RbBtn.Size = UDim2.new(0.92, 0, 0, 22); RbBtn.Position = UDim2.new(0.04, 0, 0, 5
 RbBtn.TextColor3 = Color3.fromRGB(255, 255, 255); RbBtn.Font = Enum.Font.GothamBold; RbBtn.TextSize = 9; Instance.new("UICorner", RbBtn)
 RbBtn.MouseButton1Click:Connect(function() espSettings.Rainbow = not espSettings.Rainbow; RbBtn.BackgroundColor3 = espSettings.Rainbow and Color3.fromRGB(230, 50, 150) or Color3.fromRGB(45, 55, 60) end)
 
--- Keybind Rows Generation
 createBindRow("Fly")
 createBindRow("Invis")
 createBindRow("Noclip")
@@ -681,7 +617,7 @@ createBindRow("Ghost")
 createBindRow("Freecam")
 createBindRow("God Mode")
 createBindRow("Fullbright")
-createBindRow("WalkFling")
+createBindRow("Down")
 
 updateVisuals = function()
     if not scriptsRunning then return end
@@ -695,14 +631,11 @@ updateVisuals = function()
     btnRefs["Freecam"].BackgroundColor3 = freecamActive and colorOn or colorOff
     btnRefs["God Mode"].BackgroundColor3 = godModeActive and colorOn or colorOff
     btnRefs["Fullbright"].BackgroundColor3 = fullbrightActive and colorOn or colorOff
-    btnRefs["Walk Fling"].BackgroundColor3 = walkFlingActive and colorOn or colorOff
 end
 
--- --- TELEPORT TAB POPULATOR ---
 local function refreshPlayerList()
     if not scriptsRunning then return end
     for _, child in pairs(TpContainer:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
-    
     local allPlrs = Players:GetPlayers()
     local btnCount = 0
     for _, targetPlr in pairs(allPlrs) do
@@ -710,15 +643,12 @@ local function refreshPlayerList()
             btnCount = btnCount + 1
             local row = Instance.new("Frame", TpContainer)
             row.Size = UDim2.new(0.94, 0, 0, 32); row.BackgroundColor3 = Color3.fromRGB(45, 45, 50); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 5)
-
             local tpBtn = Instance.new("TextButton", row)
             tpBtn.Size = UDim2.new(1, 0, 1, 0); tpBtn.BackgroundTransparency = 1
             tpBtn.Text = "  " .. targetPlr.Name; tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255); tpBtn.Font = Enum.Font.GothamSemibold; tpBtn.TextSize = 9; tpBtn.TextXAlignment = Enum.TextXAlignment.Left
-            
             local actionLabel = Instance.new("TextLabel", row)
             actionLabel.Size = UDim2.new(0, 45, 1, 0); actionLabel.Position = UDim2.new(1, -50, 0, 0); actionLabel.BackgroundTransparency = 1
             actionLabel.Text = "[ TP ]"; actionLabel.TextColor3 = Color3.fromRGB(0, 255, 150); actionLabel.Font = Enum.Font.GothamBold; actionLabel.TextSize = 9
-
             tpBtn.MouseButton1Click:Connect(function()
                 if not Character then return end
                 local myRoot = Character:FindFirstChild("HumanoidRootPart")
@@ -737,52 +667,40 @@ task.spawn(function()
     end
 end)
 
--- --- SAFELY ISOLATED EMERGENCY UNLOAD ---
 CloseBtn.MouseButton1Click:Connect(function()
     pcall(function() toggleFly(false) end)
     pcall(function() setTrueInvis(false) end)
     pcall(function() toggleFreecam(false) end)
     pcall(function() toggleFullbright(false) end)
-    pcall(function() toggleWalkFling(false) end)
-    
     scriptsRunning = false 
     pcall(function() UIS.MouseBehavior = Enum.MouseBehavior.Default end)
-    
-    pcall(function() 
-        if type(iyThread) == "thread" and coroutine.status(iyThread) ~= "dead" then task.cancel(iyThread) end
-    end)
-    
+    pcall(function() if type(iyThread) == "thread" and coroutine.status(iyThread) ~= "dead" then task.cancel(iyThread) end end)
     pcall(function()
         local _coreGui = game:GetService("CoreGui")
         for _, child in pairs(_coreGui:GetChildren()) do
-            if child.Name == "InfiniteYield" or child:FindFirstChild("Holder") or child:FindFirstChild("Cmdbar") then
-                child:Destroy()
-            end
+            if child.Name == "InfiniteYield" or child:FindFirstChild("Holder") or child:FindFirstChild("Cmdbar") then child:Destroy() end
         end
     end)
     pcall(function() sg:Destroy() end)
 end)
 
--- Universal Hotkey Pipeline Engine Loop
 UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed or not scriptsRunning then return end
-    if input.KeyCode == Enum.KeyCode.K then 
-        SelectorHub.Visible = not SelectorHub.Visible
+    if input.KeyCode == Enum.KeyCode.K then SelectorHub.Visible = not SelectorHub.Visible
     elseif input.KeyCode == binds.Fly and binds.Fly ~= Enum.KeyCode.None then toggleFly()
     elseif input.KeyCode == binds.Invis and binds.Invis ~= Enum.KeyCode.None then toggleInvis()
     elseif input.KeyCode == binds.Noclip and binds.Noclip ~= Enum.KeyCode.None then toggleNoclip()
     elseif input.KeyCode == binds.Ghost and binds.Ghost ~= Enum.KeyCode.None then toggleGhost()
     elseif input.KeyCode == binds.Freecam and binds.Freecam ~= Enum.KeyCode.None then toggleFreecam()
     elseif input.KeyCode == binds.GodMode and binds.GodMode ~= Enum.KeyCode.None then triggerGodMode()
-    elseif input.KeyCode == binds.Fullbright and binds.Fullbright ~= Enum.KeyCode.None then toggleFullbright()
-    elseif input.KeyCode == binds.WalkFling and binds.WalkFling ~= Enum.KeyCode.None then toggleWalkFling() end
+    elseif input.KeyCode == binds.Fullbright and binds.Fullbright ~= Enum.KeyCode.None then toggleFullbright() end
 end)
 
 Player.CharacterAdded:Connect(function(newChar)
     Character = newChar
     originalTransparencies = {}
     if scriptsRunning then
-        flyActive, invisActive, ghostActive, noclipActive, freecamActive, godModeActive, walkFlingActive = false, false, false, false, false, false, false
+        flyActive, invisActive, ghostActive, noclipActive, freecamActive, godModeActive = false, false, false, false, false, false
         stopFlying()
         setCharacterMovement(true)
         if updateVisuals then updateVisuals() end
