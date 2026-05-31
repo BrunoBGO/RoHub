@@ -45,7 +45,7 @@ local Camera = workspace.CurrentCamera
 
 -- State Variables
 local flyActive, invisActive, ghostActive, noclipActive, freecamActive, fullbrightActive, godModeActive = false, false, false, false, false, false, false
-local binds = { WalkSpeed = nil, JumpPower = nil }
+local binds = { Fly = Enum.KeyCode.F, Invis = Enum.KeyCode.J, Ghost = Enum.KeyCode.G, Noclip = Enum.KeyCode.None, Freecam = Enum.KeyCode.None, Fullbright = Enum.KeyCode.None, GodMode = Enum.KeyCode.None }
 local DEFAULTS = { FlySpeed = 50, WalkSpeed = 16, JumpPower = 50, FreecamSpeed = 100 }
 local flySpeed, walkSpeedSetting, jumpPowerSetting, freecamSpeed = DEFAULTS.FlySpeed, DEFAULTS.WalkSpeed, DEFAULTS.JumpPower, DEFAULTS.FreecamSpeed
 local espEnabled = false
@@ -142,7 +142,7 @@ local function toggleFullbright(state)
         pcall(function()
             if origLighting.Ambient then Lighting.Ambient = origLighting.Ambient end
             if origLighting.OutdoorAmbient then Lighting.OutdoorAmbient = origLighting.OutdoorAmbient end
-            if origLighting.ColorShift_Bottom then Lighting.ColorShift_Bottom = origLighting.ColorShift_Bottom end
+            if origLighting.ColorShift_Bottom = Lighting.ColorShift_Bottom end
             if origLighting.ColorShift_Top then Lighting.ColorShift_Top = origLighting.ColorShift_Top end
             if origLighting.GlobalShadows ~= nil then Lighting.GlobalShadows = origLighting.GlobalShadows end
             if origLighting.ClockTime then Lighting.ClockTime = origLighting.ClockTime end
@@ -351,11 +351,11 @@ local sliderUpdates = {}
 local function toggleFly(forceState) flyActive = (forceState ~= nil) and forceState or not flyActive if flyActive then startFlying() else stopFlying() end if updateVisuals then updateVisuals() end end
 local function toggleInvis(forceState) invisActive = (forceState ~= nil) and forceState or not invisActive setTrueInvis(invisActive) if updateVisuals then updateVisuals() end end
 local function toggleNoclip(forceState) noclipActive = (forceState ~= nil) and forceState or not noclipActive if updateVisuals then updateVisuals() end end
-local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and forceState or not ghostActive toggleFly(ghostActive); setTrueInvis(ghostActive) if updateVisuals then updateVisuals() end end
+local function toggleGhost(forceState) ghostActive = (forceState ~= nil) and ghostActive or not ghostActive toggleFly(ghostActive); setTrueInvis(ghostActive) if updateVisuals then updateVisuals() end end
 
 -- --- CORE GUI LAYER ---
 local sg = Instance.new("ScreenGui", CoreGui)
-sg.Name = "ControlHub_V33"
+sg.Name = "ControlHub_V34"
 
 -- DRAGGABLE MASTER GEAR ICON
 local MobileToggle = Instance.new("ImageButton", sg)
@@ -455,7 +455,7 @@ setupTouchDrag(Main, Header)
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(0.5, 0, 1, 0); Title.Position = UDim2.new(0.05, 0, 0, 0)
-Title.Text = "SYSTEM ARCHITECT V33"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "SYSTEM ARCHITECT V34"; Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold; Title.TextSize = 9; Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local CollapseBtn = Instance.new("TextButton", Header)
@@ -467,50 +467,68 @@ local CloseBtn = Instance.new("TextButton", Header)
 CloseBtn.Size = UDim2.new(0, 30, 0, 30); CloseBtn.Position = UDim2.new(1, -35, 0, 2.5)
 CloseBtn.Text = "[X]"; CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100); CloseBtn.BackgroundTransparency = 1; CloseBtn.Font = Enum.Font.GothamBold
 
+-- THREE-WAY DECK NAVIGATION BAR
 local TabBar = Instance.new("Frame", Main)
-TabBar.Size = UDim2.new(1, 0, 0, 35); TabBar.Position = UDim2.new(0, 0, 0, 35); TabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+TabBar.Size = UDim2.new(1, 0, 0, 30); TabBar.Position = UDim2.new(0, 0, 0, 35); TabBar.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 
 local TabControlsBtn = Instance.new("TextButton", TabBar)
-TabControlsBtn.Size = UDim2.new(0.5, 0, 1, 0); TabControlsBtn.Text = "CONTROLS"; TabControlsBtn.Font = Enum.Font.GothamBold; TabControlsBtn.TextSize = 9
+TabControlsBtn.Size = UDim2.new(0.33, 0, 1, 0); TabControlsBtn.Text = "CONTROLS"; TabControlsBtn.Font = Enum.Font.GothamBold; TabControlsBtn.TextSize = 8
 TabControlsBtn.TextColor3 = Color3.fromRGB(255, 255, 255); TabControlsBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); TabControlsBtn.BorderSizePixel = 0
 
 local TabTpBtn = Instance.new("TextButton", TabBar)
-TabTpBtn.Size = UDim2.new(0.5, 0, 1, 0); TabTpBtn.Position = UDim2.new(0.5, 0, 0, 0); TabTpBtn.Text = "TELEPORT"; TabTpBtn.Font = Enum.Font.GothamBold; TabTpBtn.TextSize = 9
+TabTpBtn.Size = UDim2.new(0.33, 0, 1, 0); TabTpBtn.Position = UDim2.new(0.33, 0, 0, 0); TabTpBtn.Text = "TELEPORT"; TabTpBtn.Font = Enum.Font.GothamBold; TabTpBtn.TextSize = 8
 TabTpBtn.TextColor3 = Color3.fromRGB(180, 180, 180); TabTpBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabTpBtn.BorderSizePixel = 0
 
+local TabBindsBtn = Instance.new("TextButton", TabBar)
+TabBindsBtn.Size = UDim2.new(0.34, 0, 1, 0); TabBindsBtn.Position = UDim2.new(0.66, 0, 0, 0); TabBindsBtn.Text = "KEYBINDS"; TabBindsBtn.Font = Enum.Font.GothamBold; TabBindsBtn.TextSize = 8
+TabBindsBtn.TextColor3 = Color3.fromRGB(180, 180, 180); TabBindsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabBindsBtn.BorderSizePixel = 0
+
+-- Containers
 local ControlsContainer = Instance.new("ScrollingFrame", Main)
-ControlsContainer.Size = UDim2.new(1, 0, 1, -70); ControlsContainer.Position = UDim2.new(0, 0, 0, 70)
-ControlsContainer.BackgroundTransparency = 1; ControlsContainer.CanvasSize = UDim2.new(0, 0, 0, 800); ControlsContainer.ScrollBarThickness = 4
+ControlsContainer.Size = UDim2.new(1, 0, 1, -65); ControlsContainer.Position = UDim2.new(0, 0, 0, 65)
+ControlsContainer.BackgroundTransparency = 1; ControlsContainer.CanvasSize = UDim2.new(0, 0, 0, 780); ControlsContainer.ScrollBarThickness = 3
 
 local TpContainer = Instance.new("ScrollingFrame", Main)
-TpContainer.Size = UDim2.new(1, 0, 1, -70); TpContainer.Position = UDim2.new(0, 0, 0, 70)
-TpContainer.BackgroundTransparency = 1; TpContainer.CanvasSize = UDim2.new(0, 0, 0, 0); TpContainer.ScrollBarThickness = 4; TpContainer.Visible = false
+TpContainer.Size = UDim2.new(1, 0, 1, -65); TpContainer.Position = UDim2.new(0, 0, 0, 65)
+TpContainer.BackgroundTransparency = 1; TpContainer.CanvasSize = UDim2.new(0, 0, 0, 0); TpContainer.ScrollBarThickness = 3; TpContainer.Visible = false
+
+local BindsContainer = Instance.new("ScrollingFrame", Main)
+BindsContainer.Size = UDim2.new(1, 0, 1, -65); BindsContainer.Position = UDim2.new(0, 0, 0, 65)
+BindsContainer.BackgroundTransparency = 1; BindsContainer.CanvasSize = UDim2.new(0, 0, 0, 350); BindsContainer.ScrollBarThickness = 3; BindsContainer.Visible = false
 
 local layoutC = Instance.new("UIListLayout", ControlsContainer)
-layoutC.Padding = UDim.new(0, 7); layoutC.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", ControlsContainer).PaddingTop = UDim.new(0, 10)
+layoutC.Padding = UDim.new(0, 6); layoutC.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", ControlsContainer).PaddingTop = UDim.new(0, 8)
 
 local layoutT = Instance.new("UIListLayout", TpContainer)
-layoutT.Padding = UDim.new(0, 6); layoutT.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", TpContainer).PaddingTop = UDim.new(0, 10)
+layoutT.Padding = UDim.new(0, 6); layoutT.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", TpContainer).PaddingTop = UDim.new(0, 8)
 
-TabControlsBtn.MouseButton1Click:Connect(function()
-    ControlsContainer.Visible = true; TpContainer.Visible = false
-    TabControlsBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); TabControlsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TabTpBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabTpBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-end)
+local layoutB = Instance.new("UIListLayout", BindsContainer)
+layoutB.Padding = UDim.new(0, 6); layoutB.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", BindsContainer).PaddingTop = UDim.new(0, 8)
 
-TabTpBtn.MouseButton1Click:Connect(function()
-    ControlsContainer.Visible = false; TpContainer.Visible = true
-    TabTpBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); TabTpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+-- Tab Navigation
+local function selectTab(activeContainer, activeBtn)
+    ControlsContainer.Visible = (activeContainer == ControlsContainer)
+    TpContainer.Visible = (activeContainer == TpContainer)
+    BindsContainer.Visible = (activeContainer == BindsContainer)
+    
     TabControlsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabControlsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-end)
+    TabTpBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabTpBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    TabBindsBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 40); TabBindsBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+    
+    activeBtn.BackgroundColor3 = Color3.fromRGB(45, 55, 60); activeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+end
+
+TabControlsBtn.MouseButton1Click:Connect(function() selectTab(ControlsContainer, TabControlsBtn) end)
+TabTpBtn.MouseButton1Click:Connect(function() selectTab(TpContainer, TabTpBtn) end)
+TabBindsBtn.MouseButton1Click:Connect(function() selectTab(BindsContainer, TabBindsBtn) end)
 
 local btnRefs = {}
 local function createRow(name, action)
     local row = Instance.new("Frame", ControlsContainer)
-    row.Size = UDim2.new(0.94, 0, 0, 36); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 5)
+    row.Size = UDim2.new(0.94, 0, 0, 34); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
 
     local actBtn = Instance.new("TextButton", row)
-    actBtn.Size = UDim2.new(0.92, 0, 0, 24); actBtn.Position = UDim2.new(0.04, 0, 0, 6)
+    actBtn.Size = UDim2.new(0.92, 0, 0, 22); actBtn.Position = UDim2.new(0.04, 0, 0, 6)
     actBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); actBtn.Text = name:upper(); actBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     actBtn.Font = Enum.Font.GothamBold; actBtn.TextSize = 9; Instance.new("UICorner", actBtn)
     
@@ -519,31 +537,31 @@ end
 
 local function createSliderAndBox(name, min, max, default, callback)
     local row = Instance.new("Frame", ControlsContainer)
-    row.Size = UDim2.new(0.94, 0, 0, 46); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 5)
+    row.Size = UDim2.new(0.94, 0, 0, 44); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
 
     local title = Instance.new("TextLabel", row)
-    title.Size = UDim2.new(0.5, 0, 0, 16); title.Position = UDim2.new(0.04, 0, 0, 4)
+    title.Size = UDim2.new(0.5, 0, 0, 14); title.Position = UDim2.new(0.04, 0, 0, 4)
     title.Text = name:upper(); title.TextColor3 = Color3.fromRGB(200, 200, 200)
     title.Font = Enum.Font.GothamSemibold; title.TextSize = 8; title.TextXAlignment = Enum.TextXAlignment.Left
 
     local numBox = Instance.new("TextBox", row)
-    numBox.Size = UDim2.new(0, 40, 0, 14); numBox.Position = UDim2.new(1, -50, 0, 4)
+    numBox.Size = UDim2.new(0, 38, 0, 14); numBox.Position = UDim2.new(1, -46, 0, 4)
     numBox.BackgroundColor3 = Color3.fromRGB(50, 50, 55); numBox.Text = tostring(default); numBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    numBox.Font = Enum.Font.GothamBold; numBox.TextSize = 9; Instance.new("UICorner", numBox)
+    numBox.Font = Enum.Font.GothamBold; numBox.TextSize = 8; Instance.new("UICorner", numBox)
 
     local sliderBg = Instance.new("Frame", row)
-    sliderBg.Size = UDim2.new(0.92, 0, 0, 4); sliderBg.Position = UDim2.new(0.04, 0, 0, 32)
+    sliderBg.Size = UDim2.new(0.92, 0, 0, 3); sliderBg.Position = UDim2.new(0.04, 0, 0, 30)
     sliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 55); Instance.new("UICorner", sliderBg)
 
     local sliderFill = Instance.new("Frame", sliderBg)
     sliderFill.BackgroundColor3 = Color3.fromRGB(0, 255, 150); Instance.new("UICorner", sliderFill)
 
     local dragBtn = Instance.new("TextButton", sliderBg)
-    dragBtn.Size = UDim2.new(0, 10, 0, 10); dragBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); dragBtn.Text = ""; Instance.new("UICorner", dragBtn)
+    dragBtn.Size = UDim2.new(0, 8, 0, 8); dragBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255); dragBtn.Text = ""; Instance.new("UICorner", dragBtn)
 
     local function syncVisuals(val)
         local clamped = math.clamp(val, min, max); local pct = (clamped - min) / (max - min)
-        sliderFill.Size = UDim2.new(pct, 0, 1, 0); dragBtn.Position = UDim2.new(pct, -5, 0, -3)
+        sliderFill.Size = UDim2.new(pct, 0, 1, 0); dragBtn.Position = UDim2.new(pct, -4, 0, -3)
         numBox.Text = tostring(clamped); callback(clamped)
     end
     
@@ -561,6 +579,35 @@ local function createSliderAndBox(name, min, max, default, callback)
     numBox.FocusLost:Connect(function()
         local num = tonumber(numBox.Text)
         if num then syncVisuals(num) else syncVisuals(min) end
+    end)
+end
+
+local function createBindRow(name)
+    local row = Instance.new("Frame", BindsContainer)
+    row.Size = UDim2.new(0.94, 0, 0, 36); row.BackgroundColor3 = Color3.fromRGB(35, 35, 40); Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+
+    local title = Instance.new("TextLabel", row)
+    title.Size = UDim2.new(0.5, 0, 1, 0); title.Position = UDim2.new(0.05, 0, 0, 0)
+    title.Text = name:upper(); title.TextColor3 = Color3.fromRGB(230, 230, 230)
+    title.Font = Enum.Font.GothamBold; title.TextSize = 9; title.TextXAlignment = Enum.TextXAlignment.Left
+
+    local bindBtn = Instance.new("TextButton", row)
+    bindBtn.Size = UDim2.new(0, 70, 0, 22); bindBtn.Position = UDim2.new(1, -75, 0, 7)
+    bindBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55); bindBtn.Text = binds[name] and binds[name].Name or "NONE"
+    bindBtn.TextColor3 = Color3.fromRGB(0, 255, 150); bindBtn.Font = Enum.Font.GothamBold; bindBtn.TextSize = 9; Instance.new("UICorner", bindBtn)
+
+    local listening = false
+    bindBtn.MouseButton1Click:Connect(function()
+        if not listening then
+            listening = true; bindBtn.Text = "..."; bindBtn.TextColor3 = Color3.fromRGB(255, 150, 0)
+            local connection
+            connection = UIS.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    binds[name] = input.KeyCode; bindBtn.Text = input.KeyCode.Name; bindBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
+                    listening = false; connection:Disconnect()
+                end
+            end)
+        end
     end)
 end
 
@@ -602,18 +649,24 @@ RbBtn.Size = UDim2.new(0.92, 0, 0, 22); RbBtn.Position = UDim2.new(0.04, 0, 0, 5
 RbBtn.TextColor3 = Color3.fromRGB(255, 255, 255); RbBtn.Font = Enum.Font.GothamBold; RbBtn.TextSize = 9; Instance.new("UICorner", RbBtn)
 RbBtn.MouseButton1Click:Connect(function() espSettings.Rainbow = not espSettings.Rainbow; RbBtn.BackgroundColor3 = espSettings.Rainbow and Color3.fromRGB(230, 50, 150) or Color3.fromRGB(45, 55, 60) end)
 
+-- Keybind Rows Generation
+createBindRow("Fly")
+createBindRow("Invis")
+createBindRow("Noclip")
+createBindRow("Ghost")
+createBindRow("Freecam")
+createBindRow("God Mode")
+createBindRow("Fullbright")
+
 updateVisuals = function()
     if not scriptsRunning then return end
     local colorOn, colorOff = Color3.fromRGB(0, 180, 100), Color3.fromRGB(50, 50, 55)
     btnRefs["Fly"].BackgroundColor3 = flyActive and colorOn or colorOff
     MiniFlyBtn.BackgroundColor3 = flyActive and colorOn or colorOff
-    
     btnRefs["Invis"].BackgroundColor3 = invisActive and colorOn or colorOff
     btnRefs["Noclip"].BackgroundColor3 = noclipActive and colorOn or colorOff
-    
     btnRefs["Ghost"].BackgroundColor3 = ghostActive and colorOn or colorOff
     MiniGhostBtn.BackgroundColor3 = ghostActive and colorOn or colorOff
-    
     btnRefs["Freecam"].BackgroundColor3 = freecamActive and colorOn or colorOff
     btnRefs["God Mode"].BackgroundColor3 = godModeActive and colorOn or colorOff
     btnRefs["Fullbright"].BackgroundColor3 = fullbrightActive and colorOn or colorOff
@@ -683,12 +736,18 @@ CloseBtn.MouseButton1Click:Connect(function()
     pcall(function() sg:Destroy() end)
 end)
 
--- Keyboard execution validation loop
+-- Universal Hotkey Pipeline Engine Loop
 UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed or not scriptsRunning then return end
     if input.KeyCode == Enum.KeyCode.K then 
         SelectorHub.Visible = not SelectorHub.Visible
-    end
+    elseif input.KeyCode == binds.Fly then toggleFly()
+    elseif input.KeyCode == binds.Invis then toggleInvis()
+    elseif input.KeyCode == binds.Noclip then toggleNoclip()
+    elseif input.KeyCode == binds.Ghost then toggleGhost()
+    elseif input.KeyCode == binds.Freecam then toggleFreecam()
+    elseif input.KeyCode == binds.GodMode then triggerGodMode()
+    elseif input.KeyCode == binds.Fullbright then toggleFullbright() end
 end)
 
 Player.CharacterAdded:Connect(function(newChar)
